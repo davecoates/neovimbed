@@ -1,0 +1,146 @@
+'use babel';
+// https://github.com/neovim/neovim/issues/2224
+// https://github.com/neovim/node-client/blob/4f4532408019407472d481445997cfb0b5c79905/index.d.ts
+
+import { CompositeDisposable } from 'atom';
+import loophole from 'loophole';
+import {shouldIgnoreOnKeydown, getVimSpecialCharInput, getVimInputFromKeyCode} from './input';
+import Screen from './Screen';
+import Buffer from './Buffer';
+
+console.log(Buffer);
+
+export default {
+
+  subscriptions: null,
+
+  editors: new Map(),
+
+  activate(state) {
+      // Events subscribed to in atom's system can be easily cleaned up with a CompositeDisposable
+      this.subscriptions = new CompositeDisposable();
+
+      var previousFunction = global.Function;
+      global.Function = loophole.Function;
+      var attach = require('neovim-client');
+      var cp = require('child_process');
+      var nvim_proc = cp.spawn('nvim', ['-u', 'NONE', '-N', '--embed'], {});
+      console.log(nvim_proc);
+      attach(nvim_proc.stdin, nvim_proc.stdout, (err, nvim) => {
+          window.nvim = nvim;
+          nvim.on('request', function(method, args, resp) {
+              console.log('request', method, args, resp);
+                  // handle msgpack-rpc request
+          });
+
+          nvim.on('notification', (method, args) => {
+              if (method == 'redraw') {
+                  if (!args.length) return;
+                  nvim.getWindows(function(err, windows) {
+                      console.log('windowlength', windows.length);
+                  });
+                  nvim.getCurrentWindow((err, res) => {
+                      //console.log('current window', res);
+                      res.getBuffer((err, buf) => {
+                          //   buf.getName((err, name) => console.log('bufname', name));
+                          //buf.getNumber((err, name) => console.log('bufname', name));
+                          buf.lineCount((err, number) => {
+                              buf.getLineSlice(0, number, true, true, (err, lines) => {
+                                  //console.log('lines', lines);
+                              })
+                          });
+                      });
+                  });
+                  this.screen.bufferStart();
+                  for (const [message, ...updates] of args) {
+                      if (this.screen[message]) {
+                          for (const update of updates) {
+                              this.screen[message](...update);
+                          }
+                      } else {
+                          //console.log(message, ...updates);
+                      }
+                  }
+                  nvim.getCurrentBuffer((err, buf) => {
+                      buf.lineCount((err, num) => {
+                          this.screen.bufferFlush(num);
+                      });
+                  });
+              } else {
+                  console.log('yo!', method, args);
+              }
+                  // handle msgpack-rpc notification
+          });
+          global.Function = previousFunction;
+
+          // Register command that toggles this view
+          this.subscriptions.add(atom.workspace.observeTextEditors((editor) => {
+              const editorView = atom.views.getView(editor);
+              const id = this.editors.size;
+              this.editors.set(id, editor);
+              var syncBuffer;
+              let nvimBuf;
+              // editor.getScreenLineCount() this will be max the current lines
+              // in file so isn't appropriate in a lot of cases
+              this.screen = new Screen(100, 80, editor);
+console.log(this.screen.rows);
+              nvim.uiAttach(this.screen.cols, this.screen.rows, true);
+
+              atom.views.getView(editor).addEventListener('keydown', e => {
+                  const specialSequence = getVimSpecialCharInput(e);
+                  if (shouldIgnoreOnKeydown(e)) {
+                      console.log('should ignore!');
+                      return;
+                  }
+                  e.stopPropagation();
+                  e.preventDefault();
+                  const input = specialSequence == null ? getVimInputFromKeyCode(e) : specialSequence;
+                  console.log(`Sending '${input}'`);
+                  nvim.input(input, (err, res) => {
+                      console.log(err, res);
+                  });
+                  //editor.syncBuffer();
+                  return false;
+              });
+              if (editorView) {
+                  console.log([editor, editorView]);
+                  nvim.command('e ' + editor.getURI(), (err) => {
+                      console.log(err);
+                          nvim.command('source ~/.config/nvim/init.vim');
+                          nvim.command('se nonu');
+                          nvim.command('se norelativenumber');
+                          nvim.command('autocmd BufWinEnter * call rpcnotify(0, "buf-win-enter", bufnr(""), bufname(bufnr("")))')
+                          nvim.command('autocmd BufEnter * call rpcnotify(0, "buf-enter", bufnr(""), bufname(bufnr("")))')
+                          nvim.subscribe('buf-enter');
+                          //nvim.command('autocmd CursorMoved * call rpcnotify(0, "cursor-moved", '+id+', getpos("."))');
+                          //nvim.command('autocmd CursorMovedI * call rpcnotify(0, "cursor-moved", '+id+', getpos("."))');
+                          //nvim.subscribe('cursor-moved');
+                  });
+                  nvim.getCurrentBuffer(function(err, buf) {
+                      nvimBuf = buf;
+                      editor.syncBuffer = function() {
+                          nvimBuf.lineCount((err, number) => {
+                              nvimBuf.getLineSlice(0, number, true, true, (err, lines) => {
+                                  console.log(err, lines);
+                                  const buffer = editor.getBuffer();
+                                  buffer.setText(lines.join("\n"));
+                                  if (editor.nvimLastPosition) {
+                                      editor.setCursorBufferPosition(editor.nvimLastPosition);
+                                  }
+                              });
+                          });
+                      };
+                  });
+              }
+          }));
+      });
+
+  },
+
+  deactivate() {
+      this.subscriptions.dispose();
+  },
+
+};
+
+console.log('start');
