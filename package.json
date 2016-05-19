@@ -10,8 +10,18 @@
     "atom": ">=1.0.0 <2.0.0"
   },
   "dependencies": {
+    "keycode": "^2.1.1",
     "loophole": "^1.1.0",
     "neovim-client": "^1.0.8",
     "promised-neovim-client": "^1.0.1"
+  },
+  "devDependencies": {
+    "babel-eslint": "^6.0.4",
+    "eslint": "^2.10.2",
+    "eslint-config-airbnb": "^9.0.1",
+    "eslint-plugin-flow-vars": "^0.4.0",
+    "eslint-plugin-flowtype": "^2.2.7",
+    "eslint-plugin-import": "^1.8.0",
+    "nuclide-atom-interfaces": "0.0.30"
   }
 }
