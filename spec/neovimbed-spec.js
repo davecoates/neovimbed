@@ -3,6 +3,7 @@
 import Neovimbed from '../lib/neovimbed';
 import { loadFile, loadFileGetBufferContents, getBufferContents, waitsForTimeout, getActivationPromise } from './spec-helper';
 import getKeycode from 'keycode';
+import fs from 'fs';
 
 function sendKeys(str) {
     for (const c of str) {
@@ -10,6 +11,17 @@ function sendKeys(str) {
         const e = atom.keymaps.constructor.buildKeydownEvent(c, { keyCode: getKeycode(c), target: view });
         view.dispatchEvent(e);
     }
+}
+
+/**
+ * If last line is empty assume it was an added new line and return new array with
+ * that one removed
+ */
+function trimTrailingNewline(lines) {
+    if (lines.length && lines[lines.length - 1] === '') {
+        return lines.slice(0, lines.length - 1);
+    }
+    return lines;
 }
 
 // Use the command `window:run-package-specs` (cmd-alt-ctrl-p) to run specs.
@@ -93,6 +105,7 @@ describe('Neovimbed', () => {
                 sendKeys('gg~Wieveryone ');
                 bufferContents = await getBufferContents(1);
             });
+            waitsForTimeout();
 
             runs(async () => {
                 const textEditors = atom.workspace.getTextEditors();
@@ -102,6 +115,55 @@ describe('Neovimbed', () => {
                 expect(bufferContents).toEqual(text);
                 console.log(lines);
                 expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(text);
+            });
+
+        });
+
+        it('basic motion, remove characters', () => {
+            waitsForPromise(() => activationPromise);
+
+            let bufferContents;
+            waitsForPromise(() => loadFile(__dirname + '/fixtures/file.txt'));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                sendKeys('ggcw');
+                bufferContents = await getBufferContents(1);
+            });
+
+            runs(() => {
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                const lines = textEditors[0].getBuffer().lines;
+                const text = [" there", "line 2"];
+                expect(bufferContents).toEqual(text);
+                console.log(bufferContents, lines);
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(text);
+            });
+
+        });
+
+        it('scroll screen', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            const fileContents = fs.readFileSync(path, { encoding: 'utf8' });
+            let bufferContents;
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                sendKeys('6j');
+                bufferContents = await getBufferContents(1);
+            });
+
+            runs(() => {
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                const lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                const text = fileContents.replace(/\n*$/,'').split("\n");
+                const textLines = text;
+                expect(bufferContents).toEqual(text);
+                expect(lines.length).toEqual(textLines.length);
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(textLines);
             });
 
         });
