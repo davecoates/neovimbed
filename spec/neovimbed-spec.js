@@ -68,6 +68,7 @@ describe('Neovimbed', () => {
                 expect(lines1.map(line => line.replace(/[ ]+$/, ''))).toEqual(buffer1Contents);
                 const lines2 = textEditors[1].getBuffer().lines;
                 expect(lines2.map(line => line.replace(/[ ]+$/, ''))).toEqual(buffer2Contents);
+                console.log(lines1, lines2);
             });
         });
 
