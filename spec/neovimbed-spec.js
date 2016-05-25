@@ -1,7 +1,7 @@
 'use babel';
 
 import Neovimbed from '../lib/neovimbed';
-import { $$textEditorBufferNumber } from '../lib/LegacyVirtualWindowManager';
+import { $$textEditorBufferNumber } from '../lib/consts';
 import { keyCodeToKeyWithShift } from '../lib/input';
 import { loadFile, loadFileGetBufferContents, getBufferContents, waitsForTimeout, timeout, getActivationPromise } from './spec-helper';
 import fs from 'fs';
@@ -225,12 +225,20 @@ describe('Neovimbed', () => {
             waitsForTimeout();
 
             waitsForPromise(async () => {
-                await timeout(1000);
-                window.nvim.command('b1');
+                await window.nvim.command('b1');
                 await timeout();
-                console.log(atom.workspace.getPanes()[0].getItems());
                 let activeBufferNumber = await window.nvim.getCurrentBuffer().then(buffer => buffer.getNumber());
                 expect(activeBufferNumber).toEqual(1);
+                expect(activeBufferNumber).toEqual(atom.workspace.getActiveTextEditor()[$$textEditorBufferNumber]);
+                await window.nvim.command('b3');
+                await timeout();
+                activeBufferNumber = await window.nvim.getCurrentBuffer().then(buffer => buffer.getNumber());
+                expect(activeBufferNumber).toEqual(3);
+                expect(activeBufferNumber).toEqual(atom.workspace.getActiveTextEditor()[$$textEditorBufferNumber]);
+                await window.nvim.command('b2');
+                await timeout();
+                activeBufferNumber = await window.nvim.getCurrentBuffer().then(buffer => buffer.getNumber());
+                expect(activeBufferNumber).toEqual(2);
                 expect(activeBufferNumber).toEqual(atom.workspace.getActiveTextEditor()[$$textEditorBufferNumber]);
             });
         });
