@@ -1,8 +1,9 @@
 'use babel';
 
 import Neovimbed from '../lib/neovimbed';
+import { $$textEditorBufferNumber } from '../lib/LegacyVirtualWindowManager';
 import { keyCodeToKeyWithShift } from '../lib/input';
-import { loadFile, loadFileGetBufferContents, getBufferContents, waitsForTimeout, getActivationPromise } from './spec-helper';
+import { loadFile, loadFileGetBufferContents, getBufferContents, waitsForTimeout, timeout, getActivationPromise } from './spec-helper';
 import fs from 'fs';
 
 // process.env.NEOVIMBED_USE_SOCKET = true;
@@ -182,6 +183,55 @@ describe('Neovimbed', () => {
                 expect(textEditors.length).toBe(1);
                 const lines = textEditors[0].getBuffer().lines;
                 expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(bufferContents);
+            });
+        });
+
+        it('change tabs, change buffer', () => {
+            waitsForPromise(() => activationPromise);
+
+            waitsForPromise(async () => await loadFile(__dirname + '/fixtures/file.txt'));
+            waitsForPromise(async () => await loadFile(__dirname + '/fixtures/file2.txt'));
+            waitsForPromise(async () => await loadFile(__dirname + '/fixtures/fn.js'));
+            waitsForTimeout();
+
+            waitsForPromise(async () => {
+                const activePane = atom.workspace.getActivePane();
+                const textEditors = atom.workspace.getTextEditors();
+                activePane.setActiveItem(textEditors[0]);
+                await timeout();
+                let activeBufferNumber = await window.nvim.getCurrentBuffer().then(buffer => buffer.getNumber());
+                expect(activeBufferNumber).toEqual(textEditors[0][$$textEditorBufferNumber]);
+                activePane.setActiveItem(textEditors[1]);
+                await timeout();
+                activeBufferNumber = await window.nvim.getCurrentBuffer().then(buffer => buffer.getNumber());
+                expect(activeBufferNumber).toEqual(textEditors[1][$$textEditorBufferNumber]);
+                activePane.setActiveItem(textEditors[0]);
+                await timeout();
+                activeBufferNumber = await window.nvim.getCurrentBuffer().then(buffer => buffer.getNumber());
+                expect(activeBufferNumber).toEqual(textEditors[0][$$textEditorBufferNumber]);
+                activePane.setActiveItem(textEditors[2]);
+                await timeout();
+                activeBufferNumber = await window.nvim.getCurrentBuffer().then(buffer => buffer.getNumber());
+                expect(activeBufferNumber).toEqual(textEditors[2][$$textEditorBufferNumber]);
+            });
+        });
+
+        fit('change buffer, change tab', () => {
+            waitsForPromise(() => activationPromise);
+
+            waitsForPromise(async () => await loadFile(__dirname + '/fixtures/file.txt'));
+            waitsForPromise(async () => await loadFile(__dirname + '/fixtures/file2.txt'));
+            waitsForPromise(async () => await loadFile(__dirname + '/fixtures/fn.js'));
+            waitsForTimeout();
+
+            waitsForPromise(async () => {
+                await timeout(1000);
+                window.nvim.command('b1');
+                await timeout();
+                console.log(atom.workspace.getPanes()[0].getItems());
+                let activeBufferNumber = await window.nvim.getCurrentBuffer().then(buffer => buffer.getNumber());
+                expect(activeBufferNumber).toEqual(1);
+                expect(activeBufferNumber).toEqual(atom.workspace.getActiveTextEditor()[$$textEditorBufferNumber]);
             });
         });
 

@@ -12,8 +12,12 @@ export async function loadFileGetBufferContents(path) {
     return await buffer.getLineSlice(0, lineCount, true, true);
 }
 
+export function timeout(ms = 50) {
+    return new Promise(resolve => jasmine.setTimeout(resolve, ms));
+}
+
 export function waitsForTimeout(ms = 50) {
-    return waitsForPromise(() => new Promise(resolve => jasmine.setTimeout(resolve, ms)));
+    return waitsForPromise(() => timeout(ms));
 }
 
 export function getActivationPromise() {
