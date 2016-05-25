@@ -216,7 +216,7 @@ describe('Neovimbed', () => {
             });
         });
 
-        fit('change buffer, change tab', () => {
+        it('change buffer, change tab', () => {
             waitsForPromise(() => activationPromise);
 
             waitsForPromise(async () => await loadFile(__dirname + '/fixtures/file.txt'));
