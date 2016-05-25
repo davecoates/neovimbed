@@ -243,6 +243,29 @@ describe('Neovimbed', () => {
             });
         });
 
+        it('cursor position in sync', () => {
+            waitsForPromise(() => activationPromise);
+
+            waitsForPromise(async () => await loadFile(__dirname + '/fixtures/fn.js'));
+            waitsForTimeout();
+
+            waitsForPromise(async () => {
+                const win = await window.nvim.getCurrentWindow();
+                const editor = atom.workspace.getActiveTextEditor();
+                const assertCursorsEqual = async (expectedRow, expectedColumn) => {
+                    const [row, column] = await win.getCursor();
+                    expect([expectedRow, expectedColumn]).toEqual([row, column + 1]);
+                    const cursor = editor.getCursorBufferPosition();
+                    expect(row).toEqual(cursor.row + 1);
+                }
+                await assertCursorsEqual(1, 1);
+                sendKeys('10G');
+                await assertCursorsEqual(10, 9);
+                sendKeys('20|');
+                await assertCursorsEqual(10, 20);
+            });
+        });
+
         it('jump off screen', () => {
             waitsForPromise(() => activationPromise);
 
