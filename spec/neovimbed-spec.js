@@ -1,16 +1,16 @@
 'use babel';
 
 import Neovimbed from '../lib/neovimbed';
+import { keyCodeToKeyWithShift } from '../lib/input';
 import { loadFile, loadFileGetBufferContents, getBufferContents, waitsForTimeout, getActivationPromise } from './spec-helper';
-import getKeycode from 'keycode';
 import fs from 'fs';
 
+// process.env.NEOVIMBED_USE_SOCKET = true;
+
 function sendKeys(str) {
-    for (const c of str) {
-        const view = atom.views.getView(atom.workspace.getActiveTextEditor())
-        const e = atom.keymaps.constructor.buildKeydownEvent(c, { keyCode: getKeycode(c), target: view });
-        view.dispatchEvent(e);
-    }
+    // Bypass event system and just pass straight through to input. Working out
+    // keycode is a pain.
+    window.nvim.input(str);
 }
 
 /**
@@ -68,7 +68,6 @@ describe('Neovimbed', () => {
                 expect(lines1.map(line => line.replace(/[ ]+$/, ''))).toEqual(buffer1Contents);
                 const lines2 = textEditors[1].getBuffer().lines;
                 expect(lines2.map(line => line.replace(/[ ]+$/, ''))).toEqual(buffer2Contents);
-                console.log(lines1, lines2);
             });
         });
 
@@ -114,7 +113,6 @@ describe('Neovimbed', () => {
                 const lines = textEditors[0].getBuffer().lines;
                 const text = ["Hello everyone there", "line 2"];
                 expect(bufferContents).toEqual(text);
-                console.log(lines);
                 expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(text);
             });
 
@@ -137,7 +135,6 @@ describe('Neovimbed', () => {
                 const lines = textEditors[0].getBuffer().lines;
                 const text = [" there", "line 2"];
                 expect(bufferContents).toEqual(text);
-                console.log(bufferContents, lines);
                 expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(text);
             });
 
@@ -167,6 +164,84 @@ describe('Neovimbed', () => {
                 expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(textLines);
             });
 
+        });
+
+        it('delete block with bottom section off visible screen', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            let bufferContents;
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                sendKeys('jdi{');
+                bufferContents = await getBufferContents(1);
+            });
+            runs(() => {
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                const lines = textEditors[0].getBuffer().lines;
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(bufferContents);
+            });
+        });
+
+        it('jump off screen', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            let bufferContents;
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                sendKeys('G');
+                bufferContents = await getBufferContents(1);
+            });
+            runs(() => {
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                const lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                console.log(bufferContents.join("\n"));
+                console.log(lines.map(line => line.replace(/[ ]+$/, '')).join("\n"));
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(bufferContents);
+            });
+        });
+
+        it('delete block with bottom section off visible screen, undo', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            let bufferContents;
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                sendKeys('jdi{u');
+                bufferContents = await getBufferContents(1);
+            });
+            runs(() => {
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                const lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(bufferContents);
+            });
+        });
+
+        it('replace text offscreen', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            let bufferContents;
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                sendKeys(':%s/i/I/g<cr>');
+                bufferContents = await getBufferContents(1);
+            });
+            runs(() => {
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                const lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(bufferContents);
+            });
         });
     });
 
