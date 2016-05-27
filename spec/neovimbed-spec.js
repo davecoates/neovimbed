@@ -287,6 +287,25 @@ describe('Neovimbed', () => {
             });
         });
 
+        it('insert new lines', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            let bufferContents;
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                sendKeys('2GO<cr>');
+                bufferContents = await getBufferContents(1);
+            });
+            runs(() => {
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                const lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(bufferContents);
+            });
+        });
+
         it('delete block with bottom section off visible screen, undo', () => {
             waitsForPromise(() => activationPromise);
 
@@ -303,6 +322,32 @@ describe('Neovimbed', () => {
                 expect(textEditors.length).toBe(1);
                 const lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
                 expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(bufferContents);
+            });
+        });
+
+        fit('make text changes outside of neovim', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                let bufferContents = await getBufferContents(1);
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                let lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(bufferContents);
+                textEditors[0].getBuffer().insert([1,0], "test\n");
+                lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                const updatedContents = [bufferContents[0], "test", ...bufferContents.slice(1)];
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(updatedContents);
+                textEditors[0].getBuffer().emitter.emit('did-stop-changing'); 
+                await timeout();
+                bufferContents = await getBufferContents(1);
+                expect(bufferContents).toEqual(updatedContents);
+                // TODO: It's missing end of file now!!
+                console.log(bufferContents.join("\n"));
+                console.log(updatedContents.join("\n"));
             });
         });
 
