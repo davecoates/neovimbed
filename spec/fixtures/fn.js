@@ -10,6 +10,7 @@ export default class NeovimBridge {
         this.gridSize = { rows: Math.floor(gridRowCount / 2), columns: gridColumnCount };
         this.subscriptions = new CompositeDisposable();
         this.windowManager = new LegacyVirtualWindowManager(this.client, this.gridSize);
+
     }
 
     initialise() : Promise {
