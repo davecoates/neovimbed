@@ -287,18 +287,57 @@ describe('Neovimbed', () => {
             });
         });
 
+        it('insert new lines', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                sendKeys('2GO<cr>');
+                const bufferContents = await getBufferContents(1);
+                await timeout();
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                const lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                console.log(lines.map(line => line.replace(/[\s]+$/, '')).join('\n'));
+                console.log(bufferContents.join("\n"));
+                neovimbed.printCells();
+                expect(lines.map(line => line.replace(/[\s]+$/, ''))).toEqual(bufferContents);
+            });
+        });
+
+        it('insert new lines (2)', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                sendKeys('21Go');
+                const bufferContents = await getBufferContents(1);
+                await timeout();
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                const lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                console.log(lines.map(line => line.replace(/[ ]+$/, '')));
+                console.log(bufferContents.map(line => line.replace(/[\t ]+$/, '')));
+                console.log(lines.map(line => line.replace(/[ ]+$/, '')).join('\n'));
+                console.log(bufferContents.join('\n'));
+                expect(lines.map(line => line.replace(/[\s]+$/, ''))).toEqual(bufferContents.map(line => line.replace(/[\s]+$/, '')));
+            });
+        });
+
         it('delete block with bottom section off visible screen, undo', () => {
             waitsForPromise(() => activationPromise);
 
             const path = __dirname + '/fixtures/fn.js';
-            let bufferContents;
             waitsForPromise(() => loadFile(path));
             waitsForTimeout();
             waitsForPromise(async () => {
                 sendKeys('jdi{u');
-                bufferContents = await getBufferContents(1);
-            });
-            runs(() => {
+                const bufferContents = await getBufferContents(1);
+                await timeout();
                 const textEditors = atom.workspace.getTextEditors();
                 expect(textEditors.length).toBe(1);
                 const lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
@@ -306,7 +345,66 @@ describe('Neovimbed', () => {
             });
         });
 
+        it('make text changes outside of neovim', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                let bufferContents = await getBufferContents(1);
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                let lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(bufferContents);
+                textEditors[0].setTextInBufferRange([[1,0], [1,0]], "test");
+                lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                const updatedContents = [bufferContents[0], "test", ...bufferContents.slice(2)];
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(updatedContents);
+                textEditors[0].getBuffer().emitter.emit('did-stop-changing'); 
+                await timeout();
+                bufferContents = await getBufferContents(1);
+                expect(bufferContents).toEqual(updatedContents);
+                console.log(bufferContents.join("\n"));
+                console.log(updatedContents.join("\n"));
+            });
+        });
+
+        it('make text changes outside of neovim (multiple lines)', () => {
+            waitsForPromise(() => activationPromise);
+
+            const path = __dirname + '/fixtures/fn.js';
+            waitsForPromise(() => loadFile(path));
+            waitsForTimeout();
+            waitsForPromise(async () => {
+                let bufferContents = await getBufferContents(1);
+                const textEditors = atom.workspace.getTextEditors();
+                expect(textEditors.length).toBe(1);
+                let lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(bufferContents);
+                textEditors[0].setTextInBufferRange([[12,8],[12,12]], "new Promise(function(resolve, reject) {\n\n});");
+                lines = trimTrailingNewline(textEditors[0].getBuffer().lines);
+                const updatedContents = [...bufferContents.slice(0, 12),  ..."new Promise(function(resolve, reject) {\n\n});".split('\n'), ...bufferContents.slice(13)];
+                expect(lines.map(line => line.replace(/[ ]+$/, ''))).toEqual(updatedContents);
+                textEditors[0].getBuffer().emitter.emit('did-stop-changing'); 
+                await timeout();
+                bufferContents = await getBufferContents(1);
+                expect(bufferContents).toEqual(updatedContents);
+                console.log(bufferContents.length, updatedContents.length);
+                for (let i=0;i<bufferContents.length;i++) {
+                    if (bufferContents[i] !== updatedContents[i]) {
+                        console.log(i, bufferContents[i], '!=', updatedContents[i]);
+                    }
+                }
+                console.log(lines.join("\n"));
+                console.log(bufferContents);
+                console.log(updatedContents);
+            });
+        });
+
         it('replace text offscreen', () => {
+            // Haven't worked out how to handle these yet so currently this is
+            // expected to fail
             waitsForPromise(() => activationPromise);
 
             const path = __dirname + '/fixtures/fn.js';
