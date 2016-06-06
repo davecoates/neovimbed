@@ -2,9 +2,9 @@
   "name": "neovimbed",
   "main": "./lib/neovimbed",
   "version": "0.0.0",
-  "description": "A short description of your package",
+  "description": "Embedded neovim",
   "keywords": [],
-  "repository": "https://github.com/atom/neovimbed",
+  "repository": "https://github.com/davecoates/neovimbed",
   "license": "MIT",
   "engines": {
     "atom": ">=1.0.0 <2.0.0"
