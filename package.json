@@ -1,7 +1,7 @@
 {
   "name": "neovimbed",
   "main": "./lib/neovimbed",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Embedded neovim",
   "keywords": [],
   "repository": "https://github.com/davecoates/neovimbed",
